@@ -295,6 +295,7 @@ class Naoko(object):
         self.selfUser = CytubeUser(self.name, 3, False, {"afk": False}, {"text": "", "image": ""}, deque(maxlen=3))
 
         # Connect to the room
+        self.send("initChannelCallbacks")
         self.send("joinChannel", {"name": self.room})
         
         # Log In
@@ -872,6 +873,11 @@ class Naoko(object):
             else:
                 self.logger.warn("No handler for %s [%s]", command, arg)
         else:
+            try:
+                if arg[0] == '/' or arg[0] == '$':
+                    arg = arg[1:]
+            except Exception as e:
+                pass
             fn(command, user, arg)
 
     # Executes a function in the main Synchtube thread
@@ -1106,7 +1112,7 @@ class Naoko(object):
                 raise Exception("Failed to login.")
 
     def playlistLock(self, tag, data):
-        self.room_info["locked"] = data["locked"]
+        self.room_info["locked"] = data
 
     def addUser(self, tag, data, isSelf=False):
         self._addUser(data, data["name"] == self.name)
@@ -1181,7 +1187,7 @@ class Naoko(object):
             self.enqueueMsg(("(" + user.name + ") " + msg), st=False)
         
         # Only interpret regular messages as commands
-        if not data["msgclass"]:
+        if not data["meta"].get("addClass"):
             self.chatCommand(user, msg)
         
         # Don't log messages from IRC, may result in a few unlogged messages
@@ -1968,6 +1974,8 @@ class Naoko(object):
     def anagram(self, command, user, data):
         text = re.sub(r"[^a-zA-Z]", "", data)
         if not text: return
+        if data[0] == '/' or data[0] == '$':
+            return
         if len(text) < 7:
             self.enqueueMsg("Message is too short.")
             return
