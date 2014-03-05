@@ -252,23 +252,26 @@ class Naoko(object):
         
         self.io_url = self._readIOUrl()
 
-        io_url = self._readIOUrl()
-        if not io_url:
+        if not self.io_url:
             self.logger.info("Retrieving IO_URL")
-            io_url = urlopen("http://%s/r/assets/js/iourl.js" % (self.domain)).read()
-            # Unless someone has changed their iourl.js a lot this is going to work
-            io_url = io_url[io_url.rfind("var IO_URL"):].split('"')[1]
+            try:
+                io_url = urlopen("http://%s/assets/js/iourl.js" % (self.domain)).read()
+                # Unless someone has changed their iourl.js a lot this is going to work
+                self.io_url = io_url[io_url.rfind("var IO_URL"):].split('"')[1]
+            except Exception:
+                self.logger.warning("Unable to load iourl.js, using default io_url if available.")
+                self.io_url = self.default_io_url 
         else:
             self._writeIOUrl("")
             
         # Assume HTTP because Naoko can't handle other protocols anyway
-        socket_ip, socket_port = io_url[7:].split(':')
+        socket_ip, socket_port = self.io_url[7:].split(':')
         
         self.userlist = {}
         self.logger.info("Starting SocketIO Client")
         self.client = SocketIOClient(socket_ip, int(socket_port), "socket.io", {"t": int(round(time.time() * 1000))})
         
-        self._writeIOUrl(io_url)
+        self._writeIOUrl(self.io_url)
         
         # Various queues and events used to sychronize actions in separate threads
         # Some are initialized with maxlen = 0 so they will silently discard actions meant for non-existent threads
@@ -2900,6 +2903,7 @@ class Naoko(object):
         self.name = config.get("naoko", "nick")
         self.pw   = config.get("naoko", "pass")
         self.domain = config.get("naoko", "domain")
+        self.default_io_url = config.get("naoko", "default_io_url")
         self.repl_port = config.get("naoko", "repl_port")
         self.hmod_admin = config.get("naoko", "hmod_admin").lower()
         self.spam_interval = float(config.get("naoko", "spam_interval"))
@@ -2920,4 +2924,8 @@ class Naoko(object):
         self.webserver_port = config.get("naoko", "webserver_port")
         self.webserver_protocol = config.get("naoko", "webserver_protocol")
         self.webserver_url = config.get("naoko", "webserver_url")
-
+        self.mumble_host = config.get("naoko", "mumble_host")
+        self.mumble_port = int(config.get("naoko", "mumble_port"))
+        self.mumble_name = config.get("naoko", "mumble_name")
+        self.mumble_pw = config.get("naoko", "mumble_pass")
+        self.mumble_channel = config.get("naoko", "mumble_channel") 
