@@ -19,6 +19,8 @@
 
 Edit the included `naoko.conf` file to control the settings. By default the bot will join room "Science" with the nick "DenshiBot"
 
+Naoko2.0 requires installing Python Weather API found at https://code.google.com/p/python-weather-api/
+
 Use the `$help` command to get a list of commands and their usage. Rooms will typically want Naoko to clean the playlist and automatically add videos; this can be enabled with `$management on`.
 
 ## Interactive Console Usage
