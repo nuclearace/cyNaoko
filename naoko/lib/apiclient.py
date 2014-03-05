@@ -180,6 +180,7 @@ class APIClient(object):
         return None
 
     def _weatherUnderground(self, text):
+        # Google how to get a WeatherUnderground apikey
         apiKey = ""
         if not apiKey: return
         info = {}
