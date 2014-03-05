@@ -34,7 +34,9 @@ from lib.apiclient import APIClient
 # Cleverbot doesn't like publicly posting code to access it. 
 try:
     from lib.cbclient import ChatterBotFactory, ChatterBotType
+    noCleverbot = False
 except ImportError:
+    noCleverbot = True
     class Cleverbot(object):
         pass
 
@@ -282,9 +284,10 @@ class Naoko(object):
 
         # Initialize the clients that are always used
         self.apiclient = APIClient(self.apikeys)
-        factory = ChatterBotFactory()
-        cleverbotBot = factory.create(ChatterBotType.CLEVERBOT)
-        self.cbclient = cleverbotBot.create_session()
+        if not noCleverbot:
+            factory = ChatterBotFactory()
+            cleverbotBot = factory.create(ChatterBotType.CLEVERBOT)
+            self.cbclient = cleverbotBot.create_session()
         self.client.connect()
         
         # Is this person annoying?
@@ -775,7 +778,6 @@ class Naoko(object):
                                 "steak"             : self.steak,
                                 "poll"              : self.poll,
                                 "endpoll"           : self.endPoll,
-                                "randomepisode"     : self.randomEpisode,
                                 "notifications"     : self.toggleNotifications,
                                 "afk"               : self.toggleAfk,
                                 "autodelete"        : self.setAutodelete,
@@ -2048,6 +2050,7 @@ class Naoko(object):
         #if not hasattr(self.cbclient, "cleverbot"): return
         # self.enqueueMsg("I don't want to talk atm. Have Tracy check if I want to talk later.")
         # return
+        if noCleverbot: return
         text = data
         if text == "": return
         if time.time() - self.last_talk < 5: return
