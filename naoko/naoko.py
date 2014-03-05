@@ -1895,7 +1895,7 @@ class Naoko(object):
         self.enqueueMsg("There is no steak.")
 
     def dubs(self, command, user, data):
-        self.enqueueMsg(":dubs: %s: #%s" % (user.name, random.randint(1,10000000)))
+        self.enqueueMsg("%s: #%s" % (user.name, random.randint(1,10000000)))
         #self.enqueueMsg("http://i1.kym-cdn.com/photos/images/original/000/300/605/508.jpg.pic %s: Dubs don't exist anymore" % (user.name))
 
     def toggleNotifications(self, command, user, data):
