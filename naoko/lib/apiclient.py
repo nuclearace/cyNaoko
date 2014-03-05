@@ -5,9 +5,12 @@ import logging
 import subprocess
 import time
 import re
+import urllib2
+import json
 from ssl import SSLError
 from urllib import urlencode, urlopen
 from httplib import HTTPConnection, HTTPSConnection
+
 
 from settings import *
 
@@ -169,6 +172,54 @@ class APIClient(object):
         finally:
             con.close()
             return data
+
+    def weatherUnderground(self, text):
+        data = self._weatherUnderground(text)
+        if data:
+            return data
+        return None
+
+    def _weatherUnderground(self, text):
+        apiKey = "e0b9c9875aa0f540"
+        info = {}
+        try:
+            stringData = text.split()
+            weatherData = urllib2.urlopen("http://api.wunderground.com/api/" + 
+                apiKey + "/conditions/q/" + 
+                stringData[1] + "/" + 
+                stringData[0] +".json")
+            json_string = weatherData.read()
+            parsed_json = json.loads(json_string)
+            location = parsed_json['current_observation']['display_location']['full']
+            temp_f = parsed_json['current_observation']['temp_f']
+            temp_c = parsed_json['current_observation']['temp_c']
+            date = parsed_json['current_observation']['observation_time']
+            weatherData.close()
+            
+            weatherData = urllib2.urlopen("http://api.wunderground.com/api/" + 
+                apiKey + "/forecast/q/" + 
+                stringData[1] + "/" + 
+                stringData[0] +".json")
+            json_string = weatherData.read()
+            parsed_json = json.loads(json_string)
+            forecastTempHigh_f = parsed_json['forecast']['simpleforecast']['forecastday'][1]['high']['fahrenheit']
+            forecastTempHigh_c = parsed_json['forecast']['simpleforecast']['forecastday'][1]['high']['celsius']
+            forecastTempLow_f = parsed_json['forecast']['simpleforecast']['forecastday'][1]['low']['fahrenheit']
+            forecastTempLow_c = parsed_json['forecast']['simpleforecast']['forecastday'][1]['low']['celsius']
+            weatherData.close()
+            
+            info = {"location": location,
+                    "temp_f":   temp_f,
+                    "temp_c":   temp_c,   
+                    "time":     date,
+                    "lowf": forecastTempLow_f,
+                    "lowc": forecastTempLow_c,
+                    "highf":  forecastTempHigh_f,
+                    "highc":  forecastTempHigh_c}
+            return info
+        except Exception as e:
+            self.logger.debug(e)
+
 
     # Resolve a Soundcloud URL into usable track information.
     # Soundcloud is the only site that does not include the ids in their URLs.

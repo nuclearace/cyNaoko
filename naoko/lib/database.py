@@ -135,6 +135,7 @@ class NaokoDB(object):
             stmts = ["CREATE TABLE IF NOT EXISTS videos(type TEXT, id TEXT, duration_ms INTEGER, title TEXT, primary key(type, id))",
                 "CREATE TABLE IF NOT EXISTS video_stats(type TEXT, id TEXT, uname TEXT, FOREIGN KEY(type, id) REFERENCES video(type, id))",
                 "CREATE INDEX IF NOT EXISTS video_stats_idx ON video_stats(type, id)",
+                "CREATE TABLE IF NOT EXISTS users(uname TEXT, blacklisted TEXT, block TEXT, primary key(uname))",
                 "CREATE TABLE IF NOT EXISTS bans(reason TEXT, auth INTEGER, uname TEXT, timestamp INTEGER, mod TEXT)",
                 "CREATE TABLE IF NOT EXISTS user_count(timestamp INTEGER, count INTEGER, primary key(timestamp, count))",
                 "CREATE TABLE IF NOT EXISTS chat(timestamp INTEGER, username TEXT, userid TEXT, msg TEXT, protocol TEXT, channel TEXT, flags TEXT)",
@@ -179,6 +180,32 @@ class NaokoDB(object):
             for stmt in stmts:
                 self.executeDML(stmt)
             self.commit()
+        if version < 7:
+            stmts = ["CREATE TABLE IF NOT EXISTS users(uname TEXT, blacklisted TEXT, block TEXT, primary key(uname))",
+                    "UPDATE metadata SET value = '7' WHERE key = 'dbversion'"]
+            for stmt in stmts:
+                self.executeDML(stmt)
+            self.commit()
+        if version < 8:
+            stmts = ["ALTER TABLE videos ADD autodelete TEXT",
+                    "UPDATE videos SET autodelete = 'no'",
+                    "UPDATE metadata SET value = '8' WHERE key = 'dbversion'"]
+            for stmt in stmts:
+                self.executeDML(stmt)
+            self.commit()
+        if version < 9:
+            stmts = ["UPDATE videos SET autodelete = 'no'",
+                    "UPDATE metadata SET value = '9' WHERE key = 'dbversion'"]
+            for stmt in stmts:
+                self.executeDML(stmt)
+            self.commit()
+        if version < 10:
+            stmts = ["UPDATE users SET block = 'false'",
+                    "UPDATE metadata SET value = '10' WHERE key = 'dbversion'"]
+            for stmt in stmts:
+                self.executeDML(stmt)
+            self.commit()
+
         self._foreign_keys = True
  
     @dbopen
@@ -259,6 +286,7 @@ class NaokoDB(object):
 
 
     # Higher level video/poll/chat-related APIs
+    # TODO -- Implement blockedSites
     def getVideos(self, num=None, columns=None, orderby=None, duration_s=None, title=None, user=None, blockedFlags=0b11, blockedSites = []):
         """
         Retrieves videos from the video_stats table of Naoko's database.
@@ -441,7 +469,68 @@ class NaokoDB(object):
         rows = self.fetch(sql, binds)
         if rows: return rows[0]
         else: return None
+    
+    def insertUser(self, nick):
+        if nick:
+            #self.logger.debug("Inserting %s: %s", nick)
+            self.executeDML("INSERT OR IGNORE INTO users(uname, blacklisted, block) VALUES(?, 'false', 'false')", [nick])
+        self.commit()
+            
+    def blacklistUser(self, nick, flag):
+        if nick:
+            self.logger.debug("Blacklisting user: %s", nick)        
+            self.executeDML("UPDATE users SET blacklisted=(?) WHERE uname = ?", (flag, nick))
+        self.commit()
+        
+    def getBlacklistedUser(self, user):
+            isBlacklisted = self.fetch("SELECT blacklisted FROM users WHERE uname= ?", [user])
+            #self.logger.debug(isBlacklisted)
+            if isBlacklisted == []: return "failed"
+            return isBlacklisted[0]
 
+    def getAllBlacklistedUsers(self):
+        blockedUsers = self.fetch("SELECT * FROM users")
+        colname = [ d[0] for d in blockedUsers ]
+        blacklistcol = [d[1] for d in blockedUsers]
+        result_list = dict(zip(colname, blacklistcol))
+
+        return result_list
+
+    def blockUser(self, nick, flag):
+        if nick:
+            self.logger.debug("Blocking user: %s", nick)        
+            self.executeDML("UPDATE users SET block=(?) WHERE uname = ?", (flag, nick))
+        self.commit()
+
+    def getAllBlockedUsers(self):
+        blockedUsers = self.fetch("SELECT uname FROM users WHERE block = 'true'")
+        #colname = [ d[0] for d in blockedUsers ]
+        #blockedcol = [ d[2] for d in blockedUsers]
+        #result_list = dict(zip(colname, blockedcol))
+
+        return blockedUsers
+
+    def getBlockedUser(self, user):
+        isBlocked = self.fetch("SELECT block FROM users WHERE uname= ?", [user])
+        if isBlocked == []: return "failed"
+        return isBlocked[0]
+
+    def autodeleteVideo(self, site, video):
+        if video:
+            self.logger.debug("Will now autodelete video: %s", video)
+            self.executeDML("UPDATE videos SET autodelete = 'yes' WHERE type = ? AND id = ?", (site, video))
+        self.commit()
+
+    def getAutodelete(self, site, video):
+        autodelete = self.fetch("SELECT autodelete FROM videos WHERE type = ? AND id= ?", (site, video))
+        if autodelete == []: return "failed"
+        return autodelete[0]
+
+    def deleteChat(self):
+        self.executeDML("DELETE FROM chat")
+        self.commit()
+        return "Deleted chat history."
+        
     def flagVideo(self, site, vid, flags):
         """
         Flags a video with the supplied flags.
@@ -472,9 +561,9 @@ class NaokoDB(object):
 
         nick is the username of the user who added it, with unregistered users using an empty string.
         """
-        self.logger.debug("Inserting %s into videos", (site, vid, int(dur * 1000), title, 0))
+        self.logger.debug("Inserting %s into videos", (site, vid, int(dur * 1000), title, 0, 'no'))
         self.logger.debug("Inserting %s into video_stats", (site, vid, nick))
-        self.executeDML("INSERT OR IGNORE INTO videos VALUES(?, ?, ?, ?, ?)", (site, vid, int(dur * 1000), title, 0))
+        self.executeDML("INSERT OR IGNORE INTO videos VALUES(?, ?, ?, ?, ?, ?)", (site, vid, int(dur * 1000), title, 0, 'no'))
         self.executeDML("INSERT INTO video_stats VALUES(?, ?, ?)", (site, vid, nick))
         self.commit()
         self.unflagVideo(site, vid, 1)
@@ -500,8 +589,8 @@ class NaokoDB(object):
                 if str(e) != "foreign key constraint failed": raise e
         self.executeDML("UPDATE playlistmeta SET length = (SELECT COUNT(*) FROM playlists WHERE playlists.name = playlistmeta.name) where name = ?", (name,))
         self.commit()
-    
-    # Higher level video/poll/chat-related APIs
+        
+        # Higher level video/poll/chat-related APIs
     def getPlaylist(self, name, columns, blockedFlags=0b11, blockedSites = []):
         """
         Retrieves an ordered playlist.
@@ -520,28 +609,26 @@ class NaokoDB(object):
             WHERE vs.type = v.type AND vs.id = v.id
             [ORDER BY <orderby>] [LIMIT ?]
         """
-        
         _tables = {'videos'      : set(['type', 'id', 'duration_ms', 'title'])}
         legal_cols = set.union(_tables['videos'])
         if not columns:
             columns = legal_cols
-
+        
         if not set(columns) <= legal_cols:
             raise ProgrammingError("Argument columns: %s not a subset of video "
                                     "columns %s" % (columns, _tables['videos']))
-
         # Canonicalize references to columns
-        col_repl = {'id'   : 'v.id',
+        col_repl = {'id'   : 'v.id', 
                     'type' : 'v.type'}
-
+         
         sel_cols = []
         for col in columns:
             sel_col = col
             if col in col_repl:
                 sel_col = col_repl[col]
             sel_cols.append(sel_col)
-
         sel_list  = ', '.join(sel_cols)
+         
 
         binds = (name,)
         sel_cls = "SELECT " + sel_list + " FROM playlists p INNER JOIN videos v ON p.id = v.id AND p.type = v.type "
