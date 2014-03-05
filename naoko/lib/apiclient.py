@@ -180,7 +180,8 @@ class APIClient(object):
         return None
 
     def _weatherUnderground(self, text):
-        apiKey = "e0b9c9875aa0f540"
+        apiKey = ""
+        if not apiKey: return
         info = {}
         try:
             stringData = text.split()

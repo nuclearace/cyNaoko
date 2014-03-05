@@ -250,6 +250,8 @@ class Naoko(object):
         # This is used to interrupt her timer as she is waiting for the end of a video
         self.playerAction = threading.Event()
         
+        self.io_url = self._readIOUrl()
+
         io_url = self._readIOUrl()
         if not io_url:
             self.logger.info("Retrieving IO_URL")
