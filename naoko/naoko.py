@@ -17,7 +17,6 @@ import socket
 import struct
 import threading
 import re
-import pywapi
 from urllib2 import Request, urlopen
 from collections import namedtuple, deque
 import ConfigParser
@@ -39,6 +38,11 @@ except ImportError:
     noCleverbot = True
     class Cleverbot(object):
         pass
+try: 
+    import pywapi
+    noWeather = False
+except ImportError:
+    noWeather = True
 
 # Package arguments for later use.
 # Due to the way python handles scopes this needs to be used to avoid race conditions.
@@ -2131,7 +2135,7 @@ class Naoko(object):
             self.enqueueMsg("Anagram failed.")
     
     def weather(self, command, user, data):
-        if data:
+        if data and not noWeather:
             stringData = data.split()
             if len(stringData) == 2:
                 self.apiExecute(package(self.weatherUnderground, data))
@@ -2149,6 +2153,7 @@ class Naoko(object):
                     yahoo_result['forecasts'][1]['low'])
             except:
                 self.enqueueMsg(yahoo_result['error'])
+        else: self.enqueueMsg("Weather not supported")
 
     def weatherUnderground(self, data):
         weatherData = self.apiclient.weatherUnderground(data)
@@ -2919,13 +2924,9 @@ class Naoko(object):
         self.apikeys.sc_id = config.get("naoko", "sc_client_id")
         self.apikeys.wf_id = config.get("naoko", "wolfram_id")
         self.apikeys.yt_id = config.get("naoko", "youtube_id")
+        self.apikeys.weatherSupport = config.get("naoko", "weather")
         self.webserver_mode = config.get("naoko", "webserver_mode")
         self.webserver_host = config.get("naoko", "webserver_host")
         self.webserver_port = config.get("naoko", "webserver_port")
         self.webserver_protocol = config.get("naoko", "webserver_protocol")
         self.webserver_url = config.get("naoko", "webserver_url")
-        self.mumble_host = config.get("naoko", "mumble_host")
-        self.mumble_port = int(config.get("naoko", "mumble_port"))
-        self.mumble_name = config.get("naoko", "mumble_name")
-        self.mumble_pw = config.get("naoko", "mumble_pass")
-        self.mumble_channel = config.get("naoko", "mumble_channel") 

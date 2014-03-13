@@ -174,6 +174,7 @@ class APIClient(object):
             return data
 
     def weatherUnderground(self, text):
+        if not self.keys.weatherSupport: return "No WeatherUnderground support"
         data = self._weatherUnderground(text)
         if data:
             return data
@@ -181,7 +182,7 @@ class APIClient(object):
 
     def _weatherUnderground(self, text):
         # Google how to get a WeatherUnderground apikey
-        apiKey = ""
+        apiKey = self.keys.weatherSupport
         if not apiKey: return
         info = {}
         try:
