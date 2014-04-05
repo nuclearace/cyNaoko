@@ -194,6 +194,7 @@ class APIClient(object):
         return "Error"
 
     def _weatherUnderground(self, text):
+        if not self.keys.weatherSupport: return "No WeatherUnderground support"
         apiKey = self.keys.weatherSupport
         info = {}
         try:

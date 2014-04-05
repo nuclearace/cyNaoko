@@ -2173,6 +2173,9 @@ class Naoko(object):
                         
     def weatherUnderground(self, data):
         weatherData = self.apiclient.weatherUnderground(data)
+        if weatherData == "No WeatherUnderground support":
+            self.enqueueMsg(weatherData)
+            return
         #self.logger.debug(weatherData)
         try:
             self.enqueueMsg("Location: " +
@@ -2193,7 +2196,7 @@ class Naoko(object):
             forecast = self.apiclient.forecast(data[:-1])
         else: 
             forecast = self.apiclient.forecast(data)
-        if (forecast == "Error"):
+        if (forecast == "Error" or forecast == "No WeatherUnderground support"):
             self.enqueueMsg(forecast)
             return
 
