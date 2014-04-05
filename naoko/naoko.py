@@ -63,7 +63,7 @@ class hasPermission(object):
             # Hybrid mods can be disabled
             name = user.name.lower()
             # Mods implicitly have all permissions
-            if user.rank >= 2 or (self.leader and user.leader) or (user.rank >= 1 and naoko.hybridModStatus and name in naoko.hybridModList and (naoko.hybridModList[name] & naoko.MASKS[mask][0])):
+            if user.rank >= 2 or (self.leader and user.leader) or (user.rank >= 1 and naoko.hybridModStatus and name in naoko.hybridModList and (naoko.hybridModList[name] & naoko.MASKS[self.mask][0])):
                 return fn(naoko, command, user, *args, **kwargs)
             elif not self.required:
                 # Some commands allow users without permissions to take limited actions
@@ -669,8 +669,6 @@ class Naoko(object):
                 line = f.readline()
 
             self.hybridModStatus = (line == "ON\n")
-            line = f.readline()
-            self.notifications = (line == "ON\n")
             self.hybridModList = {}
             line = f.readline()
             while line:
@@ -793,6 +791,8 @@ class Naoko(object):
                                 "tomorse"           : self.toMorse,
                                 "weather"           : self.weather,
                                 "dubs"              : self.dubs,
+                                "hybridmods"        : self.hybridMods,
+                                "permissions"       : self.permissions,
                                 # Functions that require a database
                                 "addrandom"         : self.addRandom,
                                 "blacklist"         : self.blacklist,
@@ -1344,7 +1344,7 @@ class Naoko(object):
     # Creates a poll given an asterisk separated list of strings containing the title and at least two choices.
     @hasPermission("POLL")
     def poll(self, command, user, data):
-        elements = data.split("*")
+        elements = data.split(".")
         # Filter out any empty or whitespace strings
         i = len(elements) - 1
         while i >= 0:
@@ -1353,7 +1353,7 @@ class Naoko(object):
             i-=1
         if len(elements) < 3: return
         self.send("closePoll")
-        self.send("newPoll", {"title": elements[0], "opts": elements[1:]})
+        self.send("newPoll", {"title": elements[0], "opts": elements[1:], "obscured": "false", "timeout": "undefined"})
 
     @hasPermission("POLL")
     def endPoll(self, command, user, data):
@@ -1724,10 +1724,11 @@ class Naoko(object):
 
     @hasPermission("ADD", False)
     def add(self, command, user, data, store=True, permission=True, wait=False):
+        self.logger.debug(self.hybridModList)
         if self.room_info["locked"] and not permission:
             return
         nick = user.name
-        if user.rank < 2:
+        if user.rank < 2 and not permission:
             self.enqueueMsg("This has been disabled for nonmods due to abuse of the media limit")
             return
         site = False
@@ -1818,7 +1819,7 @@ class Naoko(object):
             self.ircclient.sendMsg(msg)
 
     def hybridMods(self, command, user, data):
-        if not user.mod: return
+        if (user.rank < 3): return
         d = data.lower()
         if d == "on":
             self.hybridModStatus = True
@@ -1842,7 +1843,7 @@ class Naoko(object):
 
         g = m.groups()
         if g[5]:
-            if not user.mod: return
+            if (user.rank < 3): return
             valid, name = self.filterString(g[5], True)
             if not valid:
                 self.enqueueMsg("Invalid name.")
@@ -1852,7 +1853,7 @@ class Naoko(object):
                 self.enqueueMsg("No name given.")
                 return
             # Default to displaying the permissions for the current user.
-            name = user.nick
+            name = user.name
         name = name.lower()
         p = 0
         if name in self.hybridModList:
@@ -1860,7 +1861,7 @@ class Naoko(object):
         # Change permissions before displaying them.
         # Only change permissions if the calling user is a mod, a valid name was given, and flags were specified.
         # Also check whether a hybrid mod administrator is set.
-        if user.mod and g[0] and g[5] and ((not self.hmod_admin) or self.hmod_admin.lower() == user.nick.lower()):
+        if (user.rank > 3) and g[0] and g[5] and ((not self.hmod_admin) or self.hmod_admin.lower() == user.name.lower()):
             mask = 0
             if g[3]:
                 mask = ~0
@@ -2512,15 +2513,13 @@ class Naoko(object):
             f.write("ON\n" if self.hybridModStatus else "OFF\n")
             for h, v in self.hybridModList.iteritems():
                 if v:
-                    f.write("%s %d\n" % (h, v))
-            f.write("ON\n" if self.notifications else "OFF\n")           
+                    f.write("%s %d\n" % (h, v))         
         except Exception as e:
             self.logger.debug("Failed to write hybrid mods to file.")
             self.logger.debug(e)
         finally:
             if f:
                 f.close()
-
     # Marks a video with the specified flags.
     # 1 << 0    : Invalid video, may become valid in the future. Reset upon successful manual add.
     # 1 << 1    : Manually blacklisted video.
