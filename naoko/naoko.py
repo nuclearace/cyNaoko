@@ -849,7 +849,7 @@ class Naoko(object):
 
     # Handle chat commands from both IRC and Synchtube
     def chatCommand(self, user, msg, irc=False):
-        if not msg or msg[0] != '$': return
+        if not msg or msg[0] != '$' or user.name == self.name: return
        
         """if self.commandLock == "Mods" and not user.mod:
             return
