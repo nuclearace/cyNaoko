@@ -173,26 +173,45 @@ class APIClient(object):
             con.close()
             return data
 
+    def yahooWeather(self, text):
+        if text:
+            result = self._yahooWeather(text)
+            return result
+
+
+    def _yahooWeather(self, text):
+        try:
+            result = pywapi.get_weather_from_yahoo(text, '')
+            #self.logger.debug(result)
+            return result
+        except:
+            return "Error"
+
     def weatherUnderground(self, text):
-        if not self.keys.weatherSupport: return "No WeatherUnderground support"
         data = self._weatherUnderground(text)
         if data:
             return data
-        return None
+        return "Error"
 
     def _weatherUnderground(self, text):
-        # Google how to get a WeatherUnderground apikey
         apiKey = self.keys.weatherSupport
-        if not apiKey: return
         info = {}
         try:
             stringData = text.split()
+            fixedString = ""
+            newString = stringData[:-1]
+            for word in newString:
+                fixedString += word + "_"
+
+            cleanedData = [fixedString[:-1], stringData[-1]]
+
             weatherData = urllib2.urlopen("http://api.wunderground.com/api/" + 
                 apiKey + "/conditions/q/" + 
-                stringData[1] + "/" + 
-                stringData[0] +".json")
+                cleanedData[1] + "/" + 
+                cleanedData[0] +".json")
             json_string = weatherData.read()
             parsed_json = json.loads(json_string)
+            #self.logger.debug(parsed_json)
             location = parsed_json['current_observation']['display_location']['full']
             temp_f = parsed_json['current_observation']['temp_f']
             temp_c = parsed_json['current_observation']['temp_c']
@@ -201,10 +220,11 @@ class APIClient(object):
             
             weatherData = urllib2.urlopen("http://api.wunderground.com/api/" + 
                 apiKey + "/forecast/q/" + 
-                stringData[1] + "/" + 
-                stringData[0] +".json")
+                cleanedData[1] + "/" + 
+                cleanedData[0] +".json")
             json_string = weatherData.read()
             parsed_json = json.loads(json_string)
+            #self.logger.debug(parsed_json)
             forecastTempHigh_f = parsed_json['forecast']['simpleforecast']['forecastday'][1]['high']['fahrenheit']
             forecastTempHigh_c = parsed_json['forecast']['simpleforecast']['forecastday'][1]['high']['celsius']
             forecastTempLow_f = parsed_json['forecast']['simpleforecast']['forecastday'][1]['low']['fahrenheit']
@@ -223,6 +243,50 @@ class APIClient(object):
         except Exception as e:
             self.logger.debug(e)
 
+    def forecast(self, data):
+        if data:
+            return self._forecast(data)
+
+    def _forecast(self, data):
+        apiKey = self.keys.weatherSupport
+        try:
+            fixedString = ""
+            newString = data[:-1]
+            for word in newString:
+                fixedString += word + "_"
+
+            cleanedData = [fixedString[:-1], data[-1]]
+
+            weatherData = urllib2.urlopen("http://api.wunderground.com/api/" + 
+                apiKey + "/conditions/q/" + 
+                cleanedData[1] + "/" + 
+                cleanedData[0] +".json")
+            json_string = weatherData.read()
+            parsed_json = json.loads(json_string)
+            #self.logger.debug(parsed_json)
+            location = parsed_json['current_observation']['display_location']['full']
+            weatherData.close()
+
+            weatherData = urllib2.urlopen("http://api.wunderground.com/api/" + 
+                apiKey + "/forecast/q/" + 
+                cleanedData[1] + "/" + 
+                cleanedData[0] +".json")
+            json_string = weatherData.read()
+            parsed_json = json.loads(json_string)
+            weatherData.close()
+
+            forecast = {
+            "location"        : location,
+            "todayDay"     : parsed_json['forecast']['txt_forecast']['forecastday'][0],
+            "todayNight"   : parsed_json['forecast']['txt_forecast']['forecastday'][1],
+            "tomorrowDay"     : parsed_json['forecast']['txt_forecast']['forecastday'][2],
+            "tomorrowNight"   : parsed_json['forecast']['txt_forecast']['forecastday'][3]
+            }
+
+            return forecast
+        except Exception as e:
+            self.logger.debug(e)
+            return "Error"
 
     # Resolve a Soundcloud URL into usable track information.
     # Soundcloud is the only site that does not include the ids in their URLs.

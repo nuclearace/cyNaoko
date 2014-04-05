@@ -790,6 +790,7 @@ class Naoko(object):
                                 "autodelete"        : self.setAutodelete,
                                 "tomorse"           : self.toMorse,
                                 "weather"           : self.weather,
+                                "forecast"          : self.forecast,
                                 "dubs"              : self.dubs,
                                 "hybridmods"        : self.hybridMods,
                                 "permissions"       : self.permissions,
@@ -2136,29 +2137,43 @@ class Naoko(object):
             self.enqueueMsg("Anagram failed.")
     
     def weather(self, command, user, data):
-        if data and not noWeather:
+        if data:
             stringData = data.split()
-            if len(stringData) == 2:
+            if len(stringData) >= 2:
                 self.apiExecute(package(self.weatherUnderground, data))
-                return
-            
-            yahoo_result = pywapi.get_weather_from_yahoo(stringData[0], '')
-            try:
-                self.enqueueMsg("Currently " +
-                    yahoo_result['condition']['text'].lower() + " and " +
-                    yahoo_result['condition']['temp'] + "F in "+
-                    yahoo_result['location']['city'] + ", " +
-                    yahoo_result['location']['region'] + " as of: " + 
-                    yahoo_result['condition']['date'] + " Tomorrow: High: " +
-                    yahoo_result['forecasts'][1]['high'] + ", Low: " +
-                    yahoo_result['forecasts'][1]['low'])
-            except:
-                self.enqueueMsg(yahoo_result['error'])
-        else: self.enqueueMsg("Weather not supported")
+            else:
+                self.apiExecute(package(self.yahooWeather, stringData[0]))
 
+    def forecast(self, command, user, data):
+        if data:
+            stringData = data.split()
+            if (stringData[-1] == "tomorrow"):
+                self.apiExecute(package(self._forecast, stringData, True))
+            else:
+                self.apiExecute(package(self._forecast, stringData, False))
+
+    def yahooWeather(self, text):
+        yahoo_result = self.apiclient.yahooWeather(text)
+        if (yahoo_result == "Error"):
+            self.enqueueMsg(yahoo_result)
+            return
+        #self.logger.debug(yahoo_result)
+        try:
+            self.enqueueMsg("Currently " +
+                yahoo_result['condition']['text'].lower() + " and " +
+                yahoo_result['condition']['temp'] + "F in " +
+                yahoo_result['location']['city'] + ", " +
+                yahoo_result['location']['region'] + " as of: " + 
+                yahoo_result['condition']['date'] + " Tomorrow: High: " +
+                yahoo_result['forecasts'][1]['high'] + ", Low: " +
+                yahoo_result['forecasts'][1]['low'])
+        except Exception as e:
+            self.logger.debug(e)
+            self.enqueueMsg(yahoo_result['error'])
+                        
     def weatherUnderground(self, data):
         weatherData = self.apiclient.weatherUnderground(data)
-        self.logger.debug(weatherData)
+        #self.logger.debug(weatherData)
         try:
             self.enqueueMsg("Location: " +
                 weatherData['location'] + " Temp: " +
@@ -2172,6 +2187,49 @@ class Naoko(object):
         except Exception as e:
             self.enqueueMsg("Failed")
             self.logger.debug(e)
+
+    def _forecast(self, data, tomorrow):
+        if tomorrow:
+            forecast = self.apiclient.forecast(data[:-1])
+        else: 
+            forecast = self.apiclient.forecast(data)
+        if (forecast == "Error"):
+            self.enqueueMsg(forecast)
+            return
+
+        if tomorrow:
+            if (len(forecast['location'].split(", ")[1]) != 2):
+                self.enqueueMsg("Location: " + 
+                    forecast['location'] + " Tomorrow: " + 
+                    forecast['tomorrowDay']['fcttext_metric'])
+
+                self.enqueueMsg("Tomorrow Night: " +
+                    forecast['tomorrowNight']['fcttext_metric'])
+                return
+            
+            self.enqueueMsg("Location: " + 
+                forecast['location'] + " Tomorrow: " + 
+                forecast['tomorrowDay']['fcttext']) 
+
+            self.enqueueMsg("Tomorrow Night: " +
+                forecast['tomorrowNight']['fcttext'])
+        else:
+            if (len(forecast['location'].split(", ")[1]) != 2):
+                self.enqueueMsg("Location: " + 
+                    forecast['location'] + " Today: " + 
+                    forecast['todayDay']['fcttext_metric'])
+
+                self.enqueueMsg("Tonight: " +
+                    forecast['todayNight']['fcttext_metric'])
+                return
+
+
+            self.enqueueMsg("Location: " + 
+                forecast['location'] + " Today: " + 
+                forecast['todayDay']['fcttext']) 
+
+            self.enqueueMsg("Tonight: " +
+                forecast['todayNight']['fcttext'])
 
 
     # Telnet commands
