@@ -2618,8 +2618,9 @@ class Naoko(object):
         if site == "sc":
             vid = self.apiclient.resolveSoundcloud(vid)
             if not vid: return
-        
-        if site == "dm": site = "dm"
+
+        if site == "dm":
+            vid = url.split("_")[0]
         if site == "vi": site = "vm"
 
         if not self.checkVideoId(site, vid):
