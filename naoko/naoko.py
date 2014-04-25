@@ -1750,10 +1750,11 @@ class Naoko(object):
                 site = "vm"
                 vid = data[x+5:x+13]
         elif data.find("dailymotion") != -1:
+            data = data.split("_")[0]
             x = data.find("video/")
             if x != -1:
                 site = "dm"
-                vid = data[x+6:x+12]
+                vid = data[x+6:x+13]
         elif data.find("blip.tv") != -1:
             site = "bt"
             vid = data[-7:]
@@ -2619,8 +2620,8 @@ class Naoko(object):
             vid = self.apiclient.resolveSoundcloud(vid)
             if not vid: return
 
-        if site == "dm":
-            vid = url.split("_")[0]
+        if site == "dm": site = "dm"
+
         if site == "vi": site = "vm"
 
         if not self.checkVideoId(site, vid):
